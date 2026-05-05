@@ -1,0 +1,261 @@
+/* ── Simplified Chat Layout ────────────────────────────────────────── */
+.chat-root-simple {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+  background: #0c0c0b;
+}
+
+.chat-main-simple {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+  position: relative;
+}
+
+/* ── Messages ───────────────────────────────────────────────────────── */
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 40px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  max-width: 900px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* Custom scrollbar for messages */
+.chat-messages::-webkit-scrollbar { width: 6px; }
+.chat-messages::-webkit-scrollbar-track { background: transparent; }
+.chat-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 10px; }
+
+.chat-empty { margin: auto; text-align: center; color: var(--muted); }
+.chat-empty-icon { font-size: 3rem; color: var(--gold); opacity: 0.2; margin-bottom: 20px; }
+
+.msg-wrap { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.msg-user { align-items: flex-end; }
+.msg-assistant { align-items: flex-start; }
+
+.msg-meta {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+.msg-bubble {
+  padding: 16px 20px;
+  border-radius: 18px;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  max-width: 85%;
+}
+
+.msg-user .msg-bubble {
+  background: var(--gold-dim);
+  border: 1px solid rgba(201,168,76,0.15);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.msg-assistant .msg-bubble {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  color: #e0e0e0;
+  border-bottom-left-radius: 4px;
+}
+
+/* Thought block */
+.thought-block {
+  background: rgba(255,255,255,0.015);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--gold);
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  max-width: 85%;
+  margin-bottom: 4px;
+}
+.thought-block summary {
+  cursor: pointer;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gold);
+  opacity: 0.7;
+  user-select: none;
+  outline: none;
+}
+.thought-block p { margin-top: 10px; line-height: 1.6; white-space: pre-wrap; }
+
+/* Typing Indicators */
+.typing-indicator { display: flex; gap: 6px; padding: 12px 20px; }
+.typing-indicator span {
+  width: 8px; height: 8px;
+  background: var(--gold); border-radius: 50%; opacity: 0.3;
+  animation: bounce 1.4s infinite;
+}
+.typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes bounce {
+  0%,80%,100% { transform: translateY(0); opacity: 0.3; }
+  40% { transform: translateY(-8px); opacity: 0.8; }
+}
+
+.typing-dot {
+  display: inline-block; width: 10px; height: 10px;
+  border-radius: 50%; background: var(--gold);
+  animation: bounce 0.8s infinite;
+}
+
+/* ── Input Area ─────────────────────────────────────────────────────── */
+.chat-input-area {
+  padding: 20px 40px 32px;
+  background: linear-gradient(transparent, #0c0c0b 40%);
+  position: relative;
+  max-width: 900px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.chat-input-wrap {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 14px 18px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chat-input-wrap:focus-within {
+  border-color: rgba(201,168,76,0.4);
+  background: rgba(255,255,255,0.06);
+  box-shadow: 0 12px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(201,168,76,0.1);
+}
+
+.chat-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 1rem;
+  font-family: inherit;
+  resize: none;
+  line-height: 1.5;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 2px 0;
+}
+.chat-input::placeholder { color: rgba(255,255,255,0.25); }
+
+.send-btn {
+  width: 38px; height: 38px;
+  border-radius: 12px;
+  background: var(--gold); 
+  color: #0c0c0b;
+  border: none;
+  font-size: 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.send-btn:disabled { opacity: 0.2; cursor: not-allowed; filter: grayscale(1); }
+.send-btn:not(:disabled):hover { 
+  transform: scale(1.05);
+  box-shadow: 0 0 15px rgba(201,168,76,0.3);
+}
+
+.input-hint {
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.15);
+  text-align: center;
+  margin-top: 10px;
+  letter-spacing: 0.02em;
+}
+
+/* ── Terminal Actions ──────────────────────────────────────────────── */
+.terminal-action-card {
+  margin-top: 16px;
+  background: #141413;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal-header {
+  padding: 10px 16px;
+  background: rgba(255,255,255,0.03);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.terminal-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.05em;
+}
+
+.run-btn {
+  background: var(--gold);
+  color: #0c0c0b;
+  border: none;
+  padding: 5px 14px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.terminal-code {
+  padding: 16px;
+  background: #000;
+  color: #a8ffb2;
+  font-family: 'Fira Code', monospace;
+  font-size: 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.terminal-output {
+  padding: 16px;
+  background: #0c0c0b;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.obs-label {
+  font-size: 0.65rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.terminal-output pre {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #ddd;
+  white-space: pre-wrap;
+  word-break: break-all;
+}

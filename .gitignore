@@ -1,0 +1,86 @@
+# ─── Node / Frontend ────────────────────────────────────────────────────────
+node_modules/
+dist/
+dist-ssr/
+build/
+.cache/
+.parcel-cache/
+.vite/
+*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ─── Python / FastAPI Backend ────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.env
+
+# Distribution / packaging
+*.egg-info/
+*.egg
+dist/
+build/
+*.whl
+.eggs/
+
+# Type checking / linting
+.mypy_cache/
+.dmypy.json
+.pytype/
+.ruff_cache/
+
+# Pytest / coverage
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# ─── Environment & Secrets ──────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# ─── Docker ─────────────────────────────────────────────────────────────────
+# Keep Dockerfiles and docker-compose.yml tracked; ignore override files
+docker-compose.override.yml
+
+# ─── OS / Editor ────────────────────────────────────────────────────────────
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# VSCode
+.vscode/
+!.vscode/extensions.json
+
+# JetBrains IDEs
+.idea/
+*.iml
+
+# ─── Misc ────────────────────────────────────────────────────────────────────
+*.swp
+*.swo
+*~
+.tmp/
+tmp/
