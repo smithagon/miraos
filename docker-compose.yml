@@ -16,6 +16,26 @@ services:
       timeout: 5s
       retries: 5
 
+  postgres:
+    image: postgres:16-alpine
+    container_name: dairy_test_db
+    environment:
+      - POSTGRES_USER=dairy_user
+      - POSTGRES_PASSWORD=dairy_pass
+      - POSTGRES_DB=dairy_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/data/postgres
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: business_redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
   backend:
     build:
       context: ./fastapi-backend
@@ -24,10 +44,29 @@ services:
       - "8000:8000"
     environment:
       - MONGO_URI=mongodb://admin:password@mongodb:27017/business_os?authSource=admin
+      - REDIS_URL=redis://redis:6379/0
       - OLLAMA_HOST=http://host.docker.internal:11434
     depends_on:
       mongodb:
         condition: service_healthy
+      redis:
+        condition: service_started
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ./fastapi-backend
+    container_name: business_worker
+    command: celery -A core.celery_app worker --loglevel=info
+    environment:
+      - MONGO_URI=mongodb://admin:password@mongodb:27017/business_os?authSource=admin
+      - REDIS_URL=redis://redis:6379/0
+      - OLLAMA_HOST=http://host.docker.internal:11434
+    depends_on:
+      - mongodb
+      - redis
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
@@ -47,3 +86,4 @@ services:
 
 volumes:
   mongo_data:
+  postgres_data:

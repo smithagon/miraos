@@ -14,7 +14,7 @@ const WS_BASE = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
 
 export default function Chat() {
   const { activeTemplateId } = useTemplates();
-  const { activeId, loadSessions } = useChat();
+  const { activeId, loadSessions, sessions } = useChat();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -22,6 +22,8 @@ export default function Chat() {
   const wsRef = useRef<WebSocket | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  const currentSession = sessions.find(s => s.session_id === activeId);
 
   // ── Connect to a session ────────────────────────────────────────────
   const openSession = (sessionId: string) => {
@@ -30,8 +32,11 @@ export default function Chat() {
     setConnected(false);
 
     const url = new URL(`${WS_BASE}/chat/ws/${sessionId}`);
-    if (activeTemplateId) {
-      url.searchParams.append('template_id', activeTemplateId);
+    
+    // Use session-specific template if available, otherwise fallback to global
+    const templateToUse = currentSession?.template_id || activeTemplateId;
+    if (templateToUse) {
+      url.searchParams.append('template_id', templateToUse);
     }
     const ws = new WebSocket(url.toString());
     wsRef.current = ws;
@@ -106,6 +111,15 @@ export default function Chat() {
     <div className="chat-root-simple">
       {/* ── Main chat area ──────────────────────────────────────────── */}
       <div className="chat-main-simple">
+        {/* Header with Template Info */}
+        {activeId && (
+          <div className="chat-header-info">
+            <span className="mode-pill">
+              {currentSession?.template_name || 'Default Intelligence'}
+            </span>
+          </div>
+        )}
+
         {/* Messages */}
         <div className="chat-messages">
           {!activeId ? (

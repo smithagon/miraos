@@ -25,7 +25,7 @@ async def list_sessions() -> list[dict]:
     db = get_db()
     cursor = db.chat_sessions.find(
         {},
-        {"session_id": 1, "title": 1, "updated_at": 1, "created_at": 1, "messages": {"$slice": 2}},
+        {"session_id": 1, "template_id": 1, "title": 1, "updated_at": 1, "created_at": 1, "messages": {"$slice": 2}},
     ).sort("updated_at", -1)
     sessions = []
     async for doc in cursor:
@@ -35,20 +35,30 @@ async def list_sessions() -> list[dict]:
             (m for m in doc.get("messages", []) if m.get("role") == "user"), None
         )
         preview = (first_user["content"][:60] + "…") if first_user and len(first_user["content"]) > 60 else (first_user["content"] if first_user else "New Chat")
+        
+        template_name = "Default"
+        if doc.get("template_id"):
+            template = await template_controller.get_template(doc["template_id"])
+            if template:
+                template_name = template.get("name", "Default")
+
         sessions.append({
             "session_id": doc["session_id"],
+            "template_id": doc.get("template_id"),
+            "template_name": template_name,
             "title": doc.get("title") or preview,
             "updated_at": doc.get("updated_at").isoformat() if doc.get("updated_at") else None,
         })
     return sessions
 
 
-async def create_session() -> ChatSession:
+async def create_session(template_id: str = None) -> ChatSession:
     """Create a fresh session with a unique id and persist it."""
     db = get_db()
     session_id = str(uuid.uuid4())
     session = ChatSession(
         session_id=session_id,
+        template_id=template_id,
         messages=[ChatMessage(role="system", content=settings.SYSTEM_PROMPT)],
     )
     await db.chat_sessions.insert_one(session.model_dump())
@@ -101,8 +111,12 @@ async def build_ollama_messages(session: ChatSession, template_id: str = None) -
     
     # ── Handle Template / System Prompt ──────────────────────────────────────
     system_prompt = settings.SYSTEM_PROMPT
-    if template_id:
-        template = await template_controller.get_template(template_id)
+    
+    # Priority: template_id passed to build (from WS) > template_id stored in session
+    effective_template_id = template_id or session.template_id
+    
+    if effective_template_id:
+        template = await template_controller.get_template(effective_template_id)
         if template and template.get("base_prompt"):
             system_prompt = template["base_prompt"]
     

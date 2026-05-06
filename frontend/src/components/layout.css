@@ -1,9 +1,10 @@
 /* ── Shell ─────────────────────────────────────────────────────────── */
 .app-shell {
-  display: grid;
-  grid-template-columns: 240px 1fr;
+  display: flex;
   min-height: 100vh;
   background: #0c0c0b;
+  width: 100%;
+  overflow: hidden;
 }
 
 /* ── Sidebar ──────────────────────────────────────────────────────── */
@@ -91,7 +92,9 @@
 .main-wrapper {
   display: flex;
   flex-direction: column;
+  flex: 1;
   height: 100vh;
+  min-width: 0; /* Important for flex-shrink/expand behavior */
   overflow: hidden;
   background: #0c0c0b;
 }

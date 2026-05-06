@@ -6,6 +6,26 @@
   background: #0c0c0b;
 }
 
+.chat-header-info {
+  padding: 12px 32px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  display: flex;
+  align-items: center;
+  background: rgba(15, 15, 14, 0.4);
+}
+
+.mode-pill {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gold);
+  background: rgba(201, 168, 76, 0.1);
+  padding: 4px 10px;
+  border-radius: 99px;
+  border: 1px solid rgba(201, 168, 76, 0.2);
+}
+
 .chat-main-simple {
   flex: 1;
   display: flex;

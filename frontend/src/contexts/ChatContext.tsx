@@ -5,6 +5,8 @@ export interface Session {
   session_id: string;
   title: string;
   updated_at: string | null;
+  template_id?: string;
+  template_name?: string;
 }
 
 interface ChatContextType {
@@ -13,7 +15,7 @@ interface ChatContextType {
   setActiveId: (id: string | null) => void;
   loadSessions: () => Promise<Session[]>;
   deleteSession: (id: string) => Promise<void>;
-  createSession: () => Promise<string>;
+  createSession: (templateId?: string | null) => Promise<string>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -45,9 +47,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const createSession = async () => {
+  const createSession = async (templateId?: string | null) => {
     try {
-      const { data } = await api.post<{ session_id: string }>('/chat/sessions');
+      const { data } = await api.post<{ session_id: string }>('/chat/sessions', {
+        template_id: templateId
+      });
       await loadSessions();
       setActiveId(data.session_id);
       return data.session_id;

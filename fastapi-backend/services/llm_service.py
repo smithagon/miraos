@@ -8,6 +8,21 @@ class LLMService:
     """Wraps Ollama streaming and parses <thought> tags."""
 
     @staticmethod
+    async def generate_text(prompt: str, system: str = "") -> str:
+        """Non-streaming generation for internal tasks."""
+        client = ollama.AsyncClient(host=settings.OLLAMA_HOST)
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
+        try:
+            res = await client.chat(model=settings.MODEL_NAME, messages=messages)
+            return res['message']['content']
+        except Exception as e:
+            return f"Error generating text: {e}"
+
+    @staticmethod
     async def stream(messages: list) -> AsyncGenerator[str, None]:
         client = ollama.AsyncClient(host=settings.OLLAMA_HOST)
 

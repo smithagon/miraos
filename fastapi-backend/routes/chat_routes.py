@@ -16,7 +16,7 @@ import json
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from controllers import chat_controller
 from services.llm_service import LLMService
-from models.schemas import ChatMessage
+from models.schemas import ChatMessage, SessionCreate
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -31,8 +31,8 @@ async def get_sessions():
 
 
 @router.post("/sessions", status_code=201)
-async def post_session():
-    session = await chat_controller.create_session()
+async def post_session(payload: SessionCreate):
+    session = await chat_controller.create_session(payload.template_id)
     return {"session_id": session.session_id}
 
 

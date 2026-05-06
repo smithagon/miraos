@@ -6,6 +6,10 @@ export interface Template {
   name: string;
   base_prompt: string;
   is_active: boolean;
+  nl2sql_config?: {
+    connection_string: string;
+    status: string;
+  };
 }
 
 interface TemplateContextType {

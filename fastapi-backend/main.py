@@ -8,6 +8,7 @@ from routes.chat_routes import router as chat_router
 from routes.items_routes import router as items_router
 from routes.template_routes import router as template_router
 from routes.system_routes import router as system_router
+from routes.nl2sql_routes import router as nl2sql_router
 
 
 @asynccontextmanager
@@ -35,6 +36,7 @@ app.include_router(chat_router)
 app.include_router(items_router)
 app.include_router(template_router)
 app.include_router(system_router)
+app.include_router(nl2sql_router)
 
 
 @app.get("/health")
