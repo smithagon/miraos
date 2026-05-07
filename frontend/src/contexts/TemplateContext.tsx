@@ -6,6 +6,7 @@ export interface Template {
   name: string;
   base_prompt: string;
   is_active: boolean;
+  allowed_tools?: string[];
   nl2sql_config?: {
     connection_string: string;
     status: string;

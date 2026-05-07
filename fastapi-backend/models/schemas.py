@@ -4,9 +4,11 @@ from datetime import datetime
 
 # ── Chat ────────────────────────────────────────────────────────────────
 class ChatMessage(BaseModel):
-    role: str                      # "user" | "assistant" | "system"
+    role: str                      # "user" | "assistant" | "system" | "tool"
     content: str
     thought: Optional[str] = None
+    tool_calls: Optional[List[dict]] = None
+    tool_id: Optional[str] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 class ChatSession(BaseModel):
@@ -39,6 +41,7 @@ class PromptTemplate(BaseModel):
     name: str
     base_prompt: str
     is_active: bool = True
+    allowed_tools: List[str] = []
     nl2sql_config: Optional[Nl2SqlConfig] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -47,10 +50,12 @@ class TemplateCreate(BaseModel):
     name: str
     base_prompt: str
     is_active: bool = True
+    allowed_tools: List[str] = []
     nl2sql_config: Optional[Nl2SqlConfig] = None
 
 class TemplateUpdate(BaseModel):
     name: Optional[str] = None
     base_prompt: Optional[str] = None
     is_active: Optional[bool] = None
+    allowed_tools: Optional[List[str]] = None
     nl2sql_config: Optional[Nl2SqlConfig] = None

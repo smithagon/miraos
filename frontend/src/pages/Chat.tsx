@@ -2,12 +2,22 @@ import { useState, useEffect, useRef } from 'react';
 import { useTemplates } from '../contexts/TemplateContext';
 import { useChat } from '../contexts/ChatContext';
 import TerminalAction from '../components/TerminalAction';
+import ToolCard from '../components/ToolCard';
 import './chat.css';
 
+interface ToolStep {
+  name: string;
+  args?: string;
+  result?: string;
+  status: 'running' | 'completed' | 'failed';
+}
+
 interface Msg {
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'tool';
   content: string;
   thought?: string;
+  tool_id?: string;
+  steps?: ToolStep[];
 }
 
 const WS_BASE = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
@@ -56,10 +66,39 @@ export default function Chat() {
       setMessages((prev) => {
         const next = [...prev];
         const last = next[next.length - 1];
+        
+        if (data.type === 'call') {
+          if (last?.role === 'assistant') {
+            const steps = last.steps || [];
+            return [...next.slice(0, -1), { 
+              ...last, 
+              steps: [...steps, { name: data.name, args: data.arguments, status: 'running' }] 
+            }];
+          }
+          return [...next, { role: 'assistant', content: '', steps: [{ name: data.name, args: data.arguments, status: 'running' }] }];
+        }
+
+        if (data.type === 'observation') {
+          if (last?.role === 'assistant' && last.steps) {
+            const steps = [...last.steps];
+            const lastStep = steps[steps.length - 1];
+            if (lastStep && lastStep.name === data.name) {
+              steps[steps.length - 1] = { ...lastStep, result: data.content, status: 'completed' };
+              return [...next.slice(0, -1), { ...last, steps }];
+            }
+          }
+          // Fallback if observation comes without a matching call in UI state
+          return [...next, { role: 'tool', content: data.content, tool_id: data.name }];
+        }
+
         if (last?.role === 'assistant') {
           if (data.type === 'thought') return [...next.slice(0, -1), { ...last, thought: (last.thought || '') + data.content }];
-          return [...next.slice(0, -1), { ...last, content: last.content + data.content }];
+          if (data.type === 'chat') return [...next.slice(0, -1), { ...last, content: last.content + data.content }];
         }
+        
+        if (data.type === 'chat') return [...next, { role: 'assistant', content: data.content }];
+        if (data.type === 'thought') return [...next, { role: 'assistant', content: '', thought: data.content }];
+        
         return next;
       });
     };
@@ -145,11 +184,22 @@ export default function Chat() {
                 </details>
               )}
 
-              {(msg.content || msg.role === 'user') && (
+              {(msg.content || msg.role === 'user' || msg.steps) && (
                 <div className="msg-bubble">
-                  {msg.content || (isTyping && i === messages.length - 1 ? <span className="typing-dot" /> : null)}
+                  {msg.content}
+                  {isTyping && i === messages.length - 1 && !msg.content && !msg.steps ? <span className="typing-dot" /> : null}
                   
-                  {/* If assistant suggests a command, show TerminalAction */}
+                  {msg.steps?.map((step, si) => (
+                    <ToolCard 
+                      key={si}
+                      name={step.name}
+                      args={step.args}
+                      result={step.result}
+                      status={step.status}
+                    />
+                  ))}
+
+                  {/* Legacy TerminalAction if still used by templates */}
                   {msg.role === 'assistant' && extractCommand(msg.content) && i === messages.length - 1 && !isTyping && (
                     <TerminalAction 
                       command={extractCommand(msg.content)!} 

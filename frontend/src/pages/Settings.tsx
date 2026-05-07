@@ -4,7 +4,7 @@ import api from '../services/api';
 import './settings.css';
 
 // ─── Sub-Tab Types ────────────────────────────────────────────────────────────
-type ConfigTab = 'prompt' | 'rag' | 'nl2sql';
+type ConfigTab = 'prompt' | 'rag' | 'nl2sql' | 'permissions';
 
 // ─── RAG Tool View ───────────────────────────────────────────────────────────
 function RagTool() {
@@ -275,6 +275,59 @@ function Nl2SqlTool({ template, onUpdate }: { template: Partial<Template>, onUpd
   );
 }
 
+// ─── Permissions Tool View ───────────────────────────────────────────────────
+function PermissionsTool({ template, onUpdate }: { template: Partial<Template>, onUpdate: (updates: any) => void }) {
+  const availableTools = [
+    { id: 'execute_command', name: 'Terminal Execution', desc: 'Allow the agent to run bash commands.', icon: '🐚' },
+    { id: 'list_dir', name: 'List Directory', desc: 'Allow the agent to see files in the workspace.', icon: '📁' },
+    { id: 'read_file', name: 'Read File', desc: 'Allow the agent to read file contents.', icon: '📄' },
+    { id: 'get_db_schema', name: 'DB Schema Discovery', desc: 'Allow the agent to see database structures.', icon: '📊' },
+    { id: 'execute_sql', name: 'SQL Execution', desc: 'Allow the agent to run read-only SQL queries.', icon: '⚡' },
+  ];
+
+  const allowedTools = template.allowed_tools || [];
+
+  const toggleTool = (id: string) => {
+    const next = allowedTools.includes(id)
+      ? allowedTools.filter(t => t !== id)
+      : [...allowedTools, id];
+    onUpdate({ allowed_tools: next });
+  };
+
+  return (
+    <div className="tool-config-view">
+      <div className="tool-view-header">
+        <div className="tool-icon permissions-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <h3>Agent Permissions</h3>
+          <p>Control which tools this agent can use during its autonomous loop.</p>
+        </div>
+      </div>
+
+      <div className="tool-options-grid mt-32">
+        {availableTools.map(tool => (
+          <div 
+            key={tool.id} 
+            className={`tool-option-card selectable ${allowedTools.includes(tool.id) ? 'selected' : ''}`}
+            onClick={() => toggleTool(tool.id)}
+          >
+            <div className="tool-card-top">
+              <span className="tool-card-icon">{tool.icon}</span>
+              <div className={`checkbox-custom ${allowedTools.includes(tool.id) ? 'checked' : ''}`} />
+            </div>
+            <h4>{tool.name}</h4>
+            <p>{tool.desc}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Settings component ─────────────────────────────────────────────────
 export default function Settings() {
   const { templates, refreshTemplates } = useTemplates();
@@ -314,6 +367,7 @@ export default function Settings() {
           name: editingTemplate.name,
           base_prompt: editingTemplate.base_prompt,
           is_active: editingTemplate.is_active ?? true,
+          allowed_tools: editingTemplate.allowed_tools || [],
           nl2sql_config: editingTemplate.nl2sql_config,
         });
       } else {
@@ -321,6 +375,7 @@ export default function Settings() {
           name: editingTemplate.name,
           base_prompt: editingTemplate.base_prompt,
           is_active: true,
+          allowed_tools: editingTemplate.allowed_tools || [],
           nl2sql_config: editingTemplate.nl2sql_config,
         });
         setSelectedTemplateId(res.data._id);
@@ -442,6 +497,15 @@ export default function Settings() {
                     </svg>
                     NL2SQL Tool
                   </button>
+                  <button
+                    className={`sub-nav-item ${activeSubTab === 'permissions' ? 'active' : ''}`}
+                    onClick={() => setActiveSubTab('permissions')}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Permissions
+                  </button>
                 </div>
               </nav>
 
@@ -462,6 +526,12 @@ export default function Settings() {
                 {activeSubTab === 'rag' && <RagTool />}
                 {activeSubTab === 'nl2sql' && (
                   <Nl2SqlTool 
+                    template={editingTemplate} 
+                    onUpdate={(updates) => setEditingTemplate({ ...editingTemplate, ...updates })}
+                  />
+                )}
+                {activeSubTab === 'permissions' && (
+                  <PermissionsTool 
                     template={editingTemplate} 
                     onUpdate={(updates) => setEditingTemplate({ ...editingTemplate, ...updates })}
                   />

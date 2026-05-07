@@ -16,6 +16,7 @@ import json
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from controllers import chat_controller
 from services.llm_service import LLMService
+from services.agent_service import AgentService
 from models.schemas import ChatMessage, SessionCreate
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -69,24 +70,42 @@ async def chat_ws(websocket: WebSocket, session_id: str, template_id: str = None
             await chat_controller.save_message(session.session_id, user_msg)
             messages.append({"role": "user", "content": data})
 
-            # ── Stream LLM response ───────────────────────────────────────
-            full_chat = ""
-            full_thought = ""
-            async for payload in LLMService.stream(messages):
-                await websocket.send_text(payload)
-                parsed = json.loads(payload)
-                if parsed["type"] == "chat":
-                    full_chat += parsed.get("content", "")
-                elif parsed["type"] == "thought":
-                    full_thought += parsed.get("content", "")
+            # ── Get Template and Permissions ──────────────────────────────
+            effective_template_id = template_id or session.template_id
+            allowed_tools = []
+            context = {}
+            if effective_template_id:
+                template = await chat_controller.template_controller.get_template(effective_template_id)
+                if template:
+                    allowed_tools = template.get("allowed_tools", [])
+                    if template.get("nl2sql_config"):
+                        context["nl2sql_config"] = template["nl2sql_config"]
 
-            # ── Persist assistant response ────────────────────────────────
-            assistant_msg = ChatMessage(
-                role="assistant",
-                content=full_chat,
-                thought=full_thought or None,
+            # ── Stream Agentic Loop ───────────────────────────────────────
+            async def on_payload(p: str):
+                await websocket.send_text(p)
+
+            # Record how many messages we have BEFORE the agent starts
+            # (includes system prompt and the user message we just added)
+            pre_loop_count = len(messages)
+
+            await AgentService.run_loop(
+                messages=messages,
+                allowed_tools=allowed_tools,
+                on_payload=on_payload,
+                context=context
             )
-            await chat_controller.save_message(session.session_id, assistant_msg)
+
+            # ── Persist new agent turns (thoughts, tool results, etc.) ─────
+            # AgentService.run_loop appends new turns to the 'messages' list.
+            for m in messages[pre_loop_count:]:
+                msg_obj = ChatMessage(
+                    role=m["role"],
+                    content=m["content"],
+                    thought=m.get("_thought") or m.get("thought"),
+                    tool_id=m.get("tool_id")
+                )
+                await chat_controller.save_message(session.session_id, msg_obj)
 
     except WebSocketDisconnect:
         print(f"[Chat WS] Client disconnected from session {session_id}.")

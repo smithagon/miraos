@@ -98,12 +98,13 @@ async def delete_session(session_id: str) -> bool:
 
 
 async def get_history_payload(session: ChatSession) -> str:
+    from core.json_utils import json_dumps
     history = [
         {"role": m.role, "content": m.content, "thought": m.thought}
         for m in session.messages
         if m.role != "system"
     ]
-    return json.dumps({"type": "history", "messages": history})
+    return json_dumps({"type": "history", "messages": history})
 
 
 async def build_ollama_messages(session: ChatSession, template_id: str = None) -> list:
