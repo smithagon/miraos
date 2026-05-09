@@ -18,8 +18,8 @@ class MetadataManager:
             metadata_coll = self.mongo.db.nl2sql_metadata
             doc = {
                 "db_id": self.db_id,
-                "tables": [t.dict() for t in tables],
-                "relations": [r.dict() for r in relations],
+                "tables": [t.model_dump(mode="json") for t in tables],
+                "relations": [r.model_dump(mode="json") for r in relations],
                 "status": status,
                 "updated_at": "now"
             }

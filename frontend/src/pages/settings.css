@@ -529,6 +529,42 @@
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+.schema-empty-panel {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed var(--border);
+  border-radius: 20px;
+  padding: 24px 28px;
+  text-align: left;
+}
+
+.schema-empty-panel h4 {
+  margin: 0 0 10px 0;
+  font-size: 1rem;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.schema-empty-panel p {
+  margin: 0 0 16px 0;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--muted);
+  max-width: 52ch;
+}
+
+.schema-empty-panel .refresh-schema-btn {
+  margin-top: 4px;
+}
+
+.schema-empty-code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.82em;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 0.12em 0.35em;
+  border-radius: 4px;
+}
+
 /* ── Schema Viewer ── */
 .schema-viewer {
   background: rgba(255, 255, 255, 0.02);

@@ -54,6 +54,7 @@ function normalizeHistoryMessages(raw: unknown): Msg[] {
 }
 
 const WS_BASE = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
+const CHART_BLOCK_RE = /```chart(?:\s|\n|$)/i;
 
 export default function Chat() {
   const { activeTemplateId } = useTemplates();
@@ -188,6 +189,8 @@ export default function Chat() {
     return match ? match[1].trim() : null;
   };
 
+  const hasChartBlock = (content: string) => CHART_BLOCK_RE.test(content);
+
   // Auto-grow textarea
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
@@ -260,7 +263,6 @@ export default function Chat() {
                   <details
                     className="msg-tools-section"
                     aria-label="Tool execution"
-                    {...(isLastAssistant && isTyping ? { open: true } : {})}
                   >
                     <summary className="msg-tools-summary">
                       Tool execution
@@ -281,7 +283,16 @@ export default function Chat() {
                 )}
 
                 {msg.role === 'assistant' && showAnswerBubble && (
-                  <div className="msg-bubble msg-bubble-answer msg-bubble-md">
+                  <div
+                    className={[
+                      'msg-bubble',
+                      'msg-bubble-answer',
+                      'msg-bubble-md',
+                      hasChartBlock(msg.content) ? 'msg-bubble-chart-full' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                  >
                     {msg.content ? <ChatMarkdown content={msg.content} /> : null}
                     {isTyping && isLastAssistant && !msg.content ? <span className="typing-dot" /> : null}
                     {extractCommand(msg.content) && isLastAssistant && !isTyping && (
