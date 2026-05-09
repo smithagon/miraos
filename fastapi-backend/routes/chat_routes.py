@@ -12,7 +12,9 @@ WebSocket:
   WS /chat/ws/{session_id}    – stream chat for a specific session
 """
 
+import asyncio
 import json
+import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from controllers import chat_controller
 from services.llm_service import LLMService
@@ -20,6 +22,8 @@ from services.agent_service import AgentService
 from models.schemas import ChatMessage, SessionCreate
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+
+logger = logging.getLogger(__name__)
 
 MAX_MSG_LEN = 4000
 
@@ -41,6 +45,39 @@ async def post_session(payload: SessionCreate):
 async def delete_session(session_id: str):
     deleted = await chat_controller.delete_session(session_id)
     return {"deleted": deleted}
+
+
+@router.get("/sessions/{session_id}/stored")
+async def get_session_stored(session_id: str):
+    """
+    Read-only outline of what is persisted in Mongo for this session (debug / verification).
+    """
+    from core.database import get_db
+
+    db = get_db()
+    doc = await db.chat_sessions.find_one({"session_id": session_id}, {"messages": 1, "session_id": 1})
+    if not doc:
+        return {"found": False, "session_id": session_id, "message_count": 0, "outline": []}
+    msgs = doc.get("messages") or []
+    outline = []
+    for i, m in enumerate(msgs):
+        steps = m.get("steps")
+        outline.append(
+            {
+                "i": i,
+                "role": m.get("role"),
+                "content_length": len(m.get("content") or ""),
+                "thought_length": len(m.get("thought") or "") if m.get("thought") else 0,
+                "steps_count": len(steps) if isinstance(steps, list) else 0,
+                "tool_id": m.get("tool_id"),
+            }
+        )
+    return {
+        "found": True,
+        "session_id": session_id,
+        "message_count": len(msgs),
+        "outline": outline,
+    }
 
 
 # ── WebSocket endpoint ────────────────────────────────────────────────────────
@@ -65,9 +102,15 @@ async def chat_ws(websocket: WebSocket, session_id: str, template_id: str = None
                 await websocket.send_text(json.dumps({"type": "done"}))
                 continue
 
-            # ── Persist user message ──────────────────────────────────────
+            # ── Persist user message (immediate so the turn survives Ollama / WS failures) ─
             user_msg = ChatMessage(role="user", content=data)
-            await chat_controller.save_message(session.session_id, user_msg)
+            try:
+                await chat_controller.save_message(session.session_id, user_msg)
+            except Exception as exc:
+                logger.exception("save_message user failed session=%s: %s", session_id, exc)
+                await websocket.send_text(json.dumps({"type": "error", "content": "Failed to save message."}))
+                await websocket.send_text(json.dumps({"type": "done"}))
+                continue
             messages.append({"role": "user", "content": data})
 
             # ── Get Template and Permissions ──────────────────────────────
@@ -89,23 +132,31 @@ async def chat_ws(websocket: WebSocket, session_id: str, template_id: str = None
             # (includes system prompt and the user message we just added)
             pre_loop_count = len(messages)
 
-            await AgentService.run_loop(
-                messages=messages,
-                allowed_tools=allowed_tools,
-                on_payload=on_payload,
-                context=context
-            )
-
-            # ── Persist new agent turns (thoughts, tool results, etc.) ─────
-            # AgentService.run_loop appends new turns to the 'messages' list.
-            for m in messages[pre_loop_count:]:
-                msg_obj = ChatMessage(
-                    role=m["role"],
-                    content=m["content"],
-                    thought=m.get("_thought") or m.get("thought"),
-                    tool_id=m.get("tool_id")
+            turn_capture: dict = {}
+            try:
+                await AgentService.run_loop(
+                    messages=messages,
+                    allowed_tools=allowed_tools,
+                    on_payload=on_payload,
+                    context=context,
+                    turn_capture=turn_capture,
                 )
-                await chat_controller.save_message(session.session_id, msg_obj)
+            finally:
+                # Save even if the client disconnects mid-stream (send fails inside on_payload).
+                # Shield so cancellation does not skip Mongo writes while tearing down the WS handler.
+                try:
+                    await asyncio.shield(
+                        chat_controller.persist_agent_turn(
+                            session.session_id,
+                            messages,
+                            pre_loop_count,
+                            turn_capture,
+                        )
+                    )
+                except Exception as exc:
+                    logger.exception(
+                        "persist_agent_turn failed session=%s: %s", session_id, exc
+                    )
 
     except WebSocketDisconnect:
         print(f"[Chat WS] Client disconnected from session {session_id}.")

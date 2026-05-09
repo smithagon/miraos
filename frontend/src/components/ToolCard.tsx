@@ -1,3 +1,11 @@
+function formatToolPayload(raw?: string): string | undefined {
+  if (raw == null || raw === '') return raw;
+  try {
+    return JSON.stringify(JSON.parse(raw), null, 2);
+  } catch {
+    return raw;
+  }
+}
 
 interface ToolCardProps {
   name: string;
@@ -24,14 +32,14 @@ export default function ToolCard({ name, args, result, status }: ToolCardProps) 
       
       {args && (
         <div className="tool-args">
-          <pre><code>{args}</code></pre>
+          <pre><code>{formatToolPayload(args) ?? args}</code></pre>
         </div>
       )}
 
       {result && (
         <div className="tool-result">
           <p className="label">Observation:</p>
-          <pre><code>{result}</code></pre>
+          <pre><code>{formatToolPayload(result) ?? result}</code></pre>
         </div>
       )}
     </div>

@@ -17,8 +17,10 @@ class Settings:
     DB_NAME = "business_os"
 
     # LLM
-    MODEL_NAME = os.getenv("MODEL_NAME", "qwen2.5:7b")
+    MODEL_NAME = os.getenv("MODEL_NAME", "qwen3:8b")
     OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://host.docker.internal:11434")
+    # Qwen3 and other “thinking” models expose reasoning via Ollama’s `thinking` stream field when enabled.
+    OLLAMA_THINK = os.getenv("OLLAMA_THINK", "true").lower() in ("1", "true", "yes")
 
     # System prompt
     SYSTEM_PROMPT = (

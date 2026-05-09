@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from datetime import datetime
 
 # ── Chat ────────────────────────────────────────────────────────────────
@@ -7,6 +7,9 @@ class ChatMessage(BaseModel):
     role: str                      # "user" | "assistant" | "system" | "tool"
     content: str
     thought: Optional[str] = None
+    """Accumulated reasoning for this fragment (streaming / merged on last assistant of a turn)."""
+    steps: Optional[List[Dict[str, Any]]] = None
+    """Tool executions: name, args, result, status — stored on the last assistant message of an agent turn."""
     tool_calls: Optional[List[dict]] = None
     tool_id: Optional[str] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)

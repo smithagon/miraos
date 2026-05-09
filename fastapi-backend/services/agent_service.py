@@ -5,7 +5,6 @@ import inspect
 from typing import List, Dict, Any, Callable, AsyncGenerator
 from services.llm_service import LLMService
 from services.tool_registry import tool_registry
-from models.schemas import ChatMessage
 from core.json_utils import json_dumps
 
 logger = logging.getLogger(__name__)
@@ -17,13 +16,17 @@ class AgentService:
         allowed_tools: List[str],
         on_payload: Callable[[str], Any],
         max_iterations: int = 10,
-        context: Dict[str, Any] = None
+        context: Dict[str, Any] = None,
+        turn_capture: Dict[str, Any] = None,
     ):
         """
         Orchestrates the Thought-Action-Observation loop.
         """
         iteration = 0
-        
+        turn_capture = turn_capture if turn_capture is not None else {}
+        turn_capture["thought"] = ""
+        turn_capture["steps"] = []
+
         # ── Inject Tool Definitions into System Prompt ──────────────────────
         available_tools = tool_registry.list_tools(allowed_tools)
         if available_tools:
@@ -33,6 +36,10 @@ class AgentService:
             
             tool_instructions += "\nTo use a tool, use the format: <call:tool_name>{\"arg\": \"val\"}</call:tool_name>\n"
             tool_instructions += "You MUST always provide a <thought> before a <call>.\n"
+            tool_instructions += (
+                "When a tool returns JSON or large structured data, do NOT paste that raw output into your reply. "
+                "Give a short natural-language summary only; the user already sees tool results in the UI.\n"
+            )
             
             # Find system message and append instructions
             for msg in messages:
@@ -49,9 +56,12 @@ class AgentService:
             active_tool_call = None
 
             async for payload in LLMService.stream(messages):
-                await on_payload(payload)
-                
                 parsed = json.loads(payload)
+                # Do not forward per-stream "done" to the WebSocket client — only the final
+                # AgentService "done" should run (avoids cutting off typing / reorder issues).
+                if parsed.get("type") != "done":
+                    await on_payload(payload)
+
                 if parsed["type"] == "chat":
                     full_chat += parsed.get("content", "")
                 elif parsed["type"] == "thought":
@@ -64,14 +74,17 @@ class AgentService:
                 elif parsed["type"] == "done":
                     break
 
+            turn_capture["thought"] = turn_capture.get("thought", "") + full_thought
+
             # If no tool was called, we are done
             if not active_tool_call:
                 break
 
             # ── Execute Tool ────────────────────────────────────────────────
             tool_name = active_tool_call["name"]
+            args_raw = active_tool_call.get("arguments") or "{}"
             try:
-                tool_args = json.loads(active_tool_call["arguments"])
+                tool_args = json.loads(args_raw)
             except Exception:
                 tool_args = {}
 
@@ -93,6 +106,19 @@ class AgentService:
                     logger.error(f"Error executing tool {tool_name}: {e}")
                     observation = f"Error executing tool {tool_name}: {e}"
 
+            step_ok = not (
+                observation.startswith("Error:")
+                or observation.startswith("Error executing tool")
+            )
+            turn_capture["steps"].append(
+                {
+                    "name": tool_name,
+                    "args": args_raw if isinstance(args_raw, str) else json.dumps(args_raw),
+                    "result": observation,
+                    "status": "completed" if step_ok else "failed",
+                }
+            )
+
             # ── Send Observation to Frontend ───────────────────────────────
             await on_payload(json_dumps({
                 "type": "observation",
@@ -102,11 +128,11 @@ class AgentService:
 
             # ── Add to History and Continue Loop ────────────────────────────
             # The LLMService.stream already appended the assistant's turn
-            # But we need to add the tool's result
+            # Persist tool rows as role "tool" for DB/UI; map to user when calling Ollama.
             messages.append({
-                "role": "user", # Using user role for observations for better compatibility
-                "content": f"OBSERVATION from {tool_name}:\n{observation}",
-                "tool_id": tool_name
+                "role": "tool",
+                "content": observation,
+                "tool_id": tool_name,
             })
 
         await on_payload(json_dumps({"type": "done"}))
