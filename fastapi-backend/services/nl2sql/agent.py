@@ -32,7 +32,7 @@ Always return your response in JSON format:
 """
 
 class NL2SQLAgent:
-    def __init__(self, tools: NL2SQLTools, model: str = "qwen2.5:7b"):
+    def __init__(self, tools: NL2SQLTools, model: str = "qwen3:8b"):
         self.tools = tools
         self.model = model
 

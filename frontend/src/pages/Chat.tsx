@@ -3,6 +3,7 @@ import { useTemplates } from '../contexts/TemplateContext';
 import { useChat } from '../contexts/ChatContext';
 import TerminalAction from '../components/TerminalAction';
 import ToolCard from '../components/ToolCard';
+import ChatMarkdown from '../components/ChatMarkdown';
 import './chat.css';
 
 interface ToolStep {
@@ -18,6 +19,38 @@ interface Msg {
   thought?: string;
   tool_id?: string;
   steps?: ToolStep[];
+}
+
+function normalizeHistoryMessages(raw: unknown): Msg[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((item: unknown) => {
+    const m = item as Record<string, unknown>;
+    const role = m.role === 'user' ? 'user' : 'assistant';
+    const rawSteps = m.steps;
+    let steps: ToolStep[] | undefined;
+    if (Array.isArray(rawSteps)) {
+      steps = rawSteps.map((s: unknown) => {
+        const t = s as Record<string, unknown>;
+        const st = t.status === 'failed' ? 'failed' : t.status === 'running' ? 'running' : 'completed';
+        return {
+          name: String(t.name ?? 'tool'),
+          args: t.args != null ? String(t.args) : undefined,
+          result: t.result != null ? String(t.result) : undefined,
+          status: st,
+        };
+      });
+    }
+    // Keep thought whenever the API sends a non-empty string (avoid dropping saved reasoning).
+    const thought =
+      typeof m.thought === 'string' && m.thought.trim().length > 0 ? m.thought : undefined;
+    return {
+      role,
+      content: typeof m.content === 'string' ? m.content : '',
+      thought,
+      tool_id: typeof m.tool_id === 'string' ? m.tool_id : undefined,
+      steps: steps && steps.length > 0 ? steps : undefined,
+    };
+  });
 }
 
 const WS_BASE = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
@@ -56,7 +89,10 @@ export default function Chat() {
 
     ws.onmessage = (e) => {
       const data = JSON.parse(e.data);
-      if (data.type === 'history') { setMessages(data.messages || []); return; }
+      if (data.type === 'history') {
+        setMessages(normalizeHistoryMessages(data.messages));
+        return;
+      }
       if (data.type === 'done') { setIsTyping(false); loadSessions(); return; }
       if (data.type === 'error') {
         setMessages((p) => { const n = [...p]; n[n.length - 1] = { ...n[n.length - 1], content: `⚠ ${data.content}` }; return n; });
@@ -79,16 +115,31 @@ export default function Chat() {
         }
 
         if (data.type === 'observation') {
-          if (last?.role === 'assistant' && last.steps) {
-            const steps = [...last.steps];
+          if (last?.role === 'assistant') {
+            const steps = [...(last.steps || [])];
             const lastStep = steps[steps.length - 1];
-            if (lastStep && lastStep.name === data.name) {
+            if (lastStep && lastStep.name === data.name && lastStep.status === 'running') {
               steps[steps.length - 1] = { ...lastStep, result: data.content, status: 'completed' };
-              return [...next.slice(0, -1), { ...last, steps }];
+            } else {
+              // Orphan observation (no matching call in UI — e.g. reconnect) still show as a tool card
+              steps.push({
+                name: data.name,
+                args: undefined,
+                result: data.content,
+                status: 'completed',
+              });
             }
+            return [...next.slice(0, -1), { ...last, steps }];
           }
-          // Fallback if observation comes without a matching call in UI state
-          return [...next, { role: 'tool', content: data.content, tool_id: data.name }];
+          return [
+            ...next,
+            {
+              role: 'assistant',
+              content: '',
+              thought: '',
+              steps: [{ name: data.name, result: data.content, status: 'completed' }],
+            },
+          ];
         }
 
         if (last?.role === 'assistant') {
@@ -173,47 +224,88 @@ export default function Chat() {
             </div>
           ) : null}
 
-          {messages.map((msg, i) => (
-            <div key={i} className={`msg-wrap msg-${msg.role}`}>
-              <div className="msg-meta">{msg.role === 'user' ? 'You' : 'Mira'}</div>
+          {messages.map((msg, i) => {
+            const isLastAssistant = msg.role === 'assistant' && i === messages.length - 1;
+            const hasSteps = !!(msg.steps && msg.steps.length > 0);
+            const showAnswerBubble =
+              msg.role === 'user' ||
+              (msg.role === 'assistant' &&
+                (!!msg.content ||
+                  (isTyping && isLastAssistant) ||
+                  (!!extractCommand(msg.content) && isLastAssistant && !isTyping)));
 
-              {msg.role === 'assistant' && msg.thought && (
-                <details className="thought-block">
-                  <summary>Thinking process</summary>
-                  <p>{msg.thought}</p>
-                </details>
-              )}
+            return (
+              <div key={i} className={`msg-wrap msg-${msg.role}`}>
+                <div className="msg-meta">{msg.role === 'user' ? 'You' : 'Mira'}</div>
 
-              {(msg.content || msg.role === 'user' || msg.steps) && (
-                <div className="msg-bubble">
-                  {msg.content}
-                  {isTyping && i === messages.length - 1 && !msg.content && !msg.steps ? <span className="typing-dot" /> : null}
-                  
-                  {msg.steps?.map((step, si) => (
-                    <ToolCard 
-                      key={si}
-                      name={step.name}
-                      args={step.args}
-                      result={step.result}
-                      status={step.status}
-                    />
-                  ))}
+                {msg.role === 'assistant' && msg.thought && (
+                  <details
+                    className="thought-block"
+                    open={isTyping && isLastAssistant}
+                  >
+                    <summary>Thinking process</summary>
+                    <div className="thought-block-body">
+                      <ChatMarkdown content={msg.thought} />
+                    </div>
+                  </details>
+                )}
 
-                  {/* Legacy TerminalAction if still used by templates */}
-                  {msg.role === 'assistant' && extractCommand(msg.content) && i === messages.length - 1 && !isTyping && (
-                    <TerminalAction 
-                      command={extractCommand(msg.content)!} 
-                      onObservation={handleObservation}
-                    />
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
+                {msg.role === 'user' && showAnswerBubble && (
+                  <div className="msg-bubble msg-bubble-md">
+                    <ChatMarkdown content={msg.content} />
+                  </div>
+                )}
 
-          {isTyping && messages[messages.length - 1]?.content === '' && !messages[messages.length - 1]?.thought && (
-            <div className="typing-indicator"><span /><span /><span /></div>
-          )}
+                {msg.role === 'assistant' && hasSteps && (
+                  <details
+                    className="msg-tools-section"
+                    aria-label="Tool execution"
+                    {...(isLastAssistant && isTyping ? { open: true } : {})}
+                  >
+                    <summary className="msg-tools-summary">
+                      Tool execution
+                      <span className="msg-tools-count">({msg.steps!.length})</span>
+                    </summary>
+                    <div className="msg-tools-stack">
+                      {msg.steps!.map((step, si) => (
+                        <ToolCard
+                          key={si}
+                          name={step.name}
+                          args={step.args}
+                          result={step.result}
+                          status={step.status}
+                        />
+                      ))}
+                    </div>
+                  </details>
+                )}
+
+                {msg.role === 'assistant' && showAnswerBubble && (
+                  <div className="msg-bubble msg-bubble-answer msg-bubble-md">
+                    {msg.content ? <ChatMarkdown content={msg.content} /> : null}
+                    {isTyping && isLastAssistant && !msg.content ? <span className="typing-dot" /> : null}
+                    {extractCommand(msg.content) && isLastAssistant && !isTyping && (
+                      <TerminalAction
+                        command={extractCommand(msg.content)!}
+                        onObservation={handleObservation}
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {isTyping &&
+            messages[messages.length - 1]?.role !== 'assistant' &&
+            messages[messages.length - 1]?.content === '' &&
+            !messages[messages.length - 1]?.thought && (
+              <div className="typing-indicator">
+                <span />
+                <span />
+                <span />
+              </div>
+            )}
           <div ref={endRef} />
         </div>
 

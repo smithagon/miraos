@@ -1,4 +1,7 @@
 from typing import Dict, Any, Optional
+
+from core.config import settings
+
 from .discovery import DiscoveryService
 from .metadata_manager import MetadataManager
 from .tools import NL2SQLTools
@@ -10,7 +13,7 @@ class NL2SQLService:
         self.discovery = DiscoveryService(connection_string)
         self.metadata = MetadataManager(db_id, mongo_client)
         self.tools = NL2SQLTools(self.discovery, self.metadata)
-        self.agent = NL2SQLAgent(self.tools)
+        self.agent = NL2SQLAgent(self.tools, model=settings.MODEL_NAME)
         self.engine = ExecutionEngine(self.discovery)
 
     async def discover_and_index(self):
