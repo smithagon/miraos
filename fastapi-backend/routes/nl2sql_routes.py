@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Dict, Any, List
 from services.nl2sql.tasks import discover_and_index_task
+from services.nl2sql.service import NL2SQLService
 from core.database import get_db
 
 router = APIRouter(prefix="/nl2sql", tags=["nl2sql"])
@@ -42,25 +43,34 @@ async def query_database(req: QueryRequest):
 
 @router.get("/metadata")
 async def get_metadata(connection_string: str):
-    """Fetch the indexed schema metadata from MongoDB."""
+    """
+    Return indexed schema for mock_db_id.
+
+    If Mongo has a snapshot but `tables` is empty (e.g. discovery ran with a bad host and
+    saved nothing), we live-crawl using the template's connection_string so the UI can recover
+    without manually clearing the collection.
+    """
     try:
         db = get_db()
         doc = await db.nl2sql_metadata.find_one({"db_id": "mock_db_id"})
-        
-        if doc:
+        cached_tables = (doc or {}).get("tables") or []
+        cached_status = (doc or {}).get("status") if doc else None
+
+        if cached_tables and len(cached_tables) > 0:
             return {
-                "tables": doc["tables"],
-                "status": doc.get("status", "indexed")
+                "tables": cached_tables,
+                "status": cached_status or "indexed",
             }
-        
-        # Fallback
-        from services.nl2sql.service import NL2SQLService
+
         service = NL2SQLService(connection_string, "mock_db_id", db)
-        tables = service.discovery.get_all_tables()
-        metadata = [service.discovery.get_table_metadata(t).dict() for t in tables]
+        table_names = service.discovery.get_all_tables()
+        metadata = [
+            service.discovery.get_table_metadata(t).model_dump(mode="json")
+            for t in table_names
+        ]
         return {
             "tables": metadata,
-            "status": "crawled"
+            "status": "crawled",
         }
 
     except Exception as e:

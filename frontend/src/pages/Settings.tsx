@@ -156,10 +156,14 @@ function Nl2SqlTool({ template, onUpdate }: { template: Partial<Template>, onUpd
   const [schemaMetadata, setSchemaMetadata] = useState<any[]>([]);
 
   useEffect(() => {
+    setConnString(template.nl2sql_config?.connection_string || '');
+  }, [template._id, template.nl2sql_config?.connection_string]);
+
+  useEffect(() => {
     if (template.nl2sql_config?.status === 'indexed' && connString) {
       fetchMetadata();
     }
-  }, [template._id, template.nl2sql_config?.status]);
+  }, [template._id, template.nl2sql_config?.status, connString]);
 
   const fetchMetadata = async () => {
     if (!connString) return;
@@ -167,7 +171,12 @@ function Nl2SqlTool({ template, onUpdate }: { template: Partial<Template>, onUpd
       const res = await api.get('/nl2sql/metadata', { params: { connection_string: connString } });
       setSchemaMetadata(res.data.tables || []);
       if (res.data.status === 'crawled') {
-        setDiscoveryStatus('Schema found. AI is generating descriptions...');
+        const n = (res.data.tables || []).length;
+        setDiscoveryStatus(
+          n > 0
+            ? 'Schema found. AI is generating descriptions...'
+            : 'Connected but no tables found. Use host `postgres` (not `localhost`) from Docker, and ensure the database is seeded.'
+        );
       } else if (res.data.status === 'enriched') {
         setDiscoveryStatus('Full AI enrichment complete!');
       }
@@ -226,7 +235,10 @@ function Nl2SqlTool({ template, onUpdate }: { template: Partial<Template>, onUpd
       <div className="tool-config-card">
         <div className="card-section">
           <h4>Database Connection</h4>
-          <p className="section-hint">Enter a SQLAlchemy-compatible connection string (e.g., postgresql://user:pass@host:5432/db).</p>
+          <p className="section-hint">
+            SQLAlchemy URI (e.g. <code>postgresql://user:pass@host:5432/db</code>). If the API runs in Docker, use the Compose
+            service name as host (<code>postgres</code>), not <code>localhost</code>.
+          </p>
           <div className="input-with-action">
             <input 
               type="password"
@@ -265,9 +277,22 @@ function Nl2SqlTool({ template, onUpdate }: { template: Partial<Template>, onUpd
           </div>
         </div>
 
-        {template.nl2sql_config?.status === 'indexed' && schemaMetadata.length > 0 && (
+        {template.nl2sql_config?.status === 'indexed' && (
           <div className="mt-32">
-            <SchemaViewer tables={schemaMetadata} onRefresh={fetchMetadata} />
+            {schemaMetadata.length > 0 ? (
+              <SchemaViewer tables={schemaMetadata} onRefresh={fetchMetadata} />
+            ) : (
+              <div className="schema-empty-panel">
+                <h4>No tables loaded yet</h4>
+                <p>
+                  Click <strong>Refresh Schema</strong> after fixing your connection string, or run{' '}
+                  <code className="schema-empty-code">python scripts/backfill_dairy.py</code> if the database is empty.
+                </p>
+                <button type="button" className="refresh-schema-btn" onClick={fetchMetadata}>
+                  Refresh Schema
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -16,7 +16,7 @@ class NL2SQLTools:
     def get_table_schema(self, table_name: str) -> Dict[str, Any]:
         """Get column names, types, and descriptions for a specific table."""
         metadata = self.discovery.get_table_metadata(table_name)
-        return metadata.dict()
+        return metadata.model_dump(mode="json")
 
     def get_table_relations(self, table_names: List[str]) -> List[Dict[str, Any]]:
         """Get foreign key relationships and join conditions between a set of tables."""
@@ -24,7 +24,7 @@ class NL2SQLTools:
         filtered = []
         for rel in all_relations:
             if rel.source_table in table_names and rel.target_table in table_names:
-                filtered.append(rel.dict())
+                filtered.append(rel.model_dump(mode="json"))
         return filtered
 
     def get_sample_values(self, table_name: str, limit: int = 3) -> List[Dict[str, Any]]:

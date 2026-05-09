@@ -126,7 +126,8 @@
   border-radius: 4px;
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
-.chat-md pre {
+.chat-md pre,
+.chat-md-pre-block {
   margin: 0.85em 0;
   padding: 12px 14px;
   border-radius: 10px;
@@ -142,6 +143,54 @@
   white-space: pre;
   display: block;
 }
+
+/* Chart widget (```chart JSON in markdown) */
+.chat-chart-widget {
+  margin: 0.85em 0;
+  padding: 14px 16px 10px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(201, 168, 76, 0.2);
+  max-width: 100%;
+}
+.chat-chart-widget__title {
+  font-size: 0.95rem;
+  font-weight: 650;
+  color: #f0f0f0;
+  margin-bottom: 10px;
+}
+.chat-chart-widget__canvas {
+  width: 100%;
+  min-height: 280px;
+}
+.chat-chart-widget--error {
+  border-color: rgba(248, 113, 113, 0.35);
+}
+.chat-chart-widget__err {
+  margin: 0.35em 0 0.5em;
+  font-size: 0.85rem;
+  color: #fca5a5;
+}
+.chat-chart-widget__raw {
+  margin-top: 8px;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.chat-chart-widget__raw summary {
+  cursor: pointer;
+  user-select: none;
+}
+.chat-chart-widget__raw pre {
+  margin: 8px 0 0;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  overflow-x: auto;
+  font-size: 0.72rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 .chat-md blockquote {
   margin: 0.75em 0;
   padding: 0.35em 0 0.35em 1em;
@@ -226,6 +275,11 @@
 }
 .msg-assistant .msg-bubble-answer {
   border-left: 2px solid rgba(201, 168, 76, 0.45);
+}
+
+.msg-assistant .msg-bubble-chart-full {
+  max-width: 100%;
+  width: 100%;
 }
 
 /* Thought block */
@@ -421,22 +475,59 @@
   word-break: break-all;
 }
 
-/* ── Tool Cards ─────────────────────────────────────────────────── */
+/* ── Tool Cards (collapsed by default; expand for args / observation) ── */
 .tool-card {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   margin: 12px 0;
-  padding: 12px;
+  padding: 0;
   font-size: 0.9rem;
-  transition: all 0.3s ease;
+  transition: border-color 0.2s ease, background 0.2s ease;
 }
 
-.tool-card-header {
+.tool-card-summary {
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 8px;
+  padding: 12px;
+  outline: none;
+}
+
+.tool-card-summary::-webkit-details-marker {
+  display: none;
+}
+
+.tool-caret {
+  font-size: 0.72rem;
+  color: rgba(148, 163, 184, 0.85);
+  transition: transform 0.15s ease;
+}
+
+.tool-caret.open {
+  transform: rotate(0deg);
+}
+
+.tool-card:not([open]) .tool-caret {
+  transform: rotate(-90deg);
+}
+
+.tool-card-body {
+  padding: 0 12px 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tool-card-body .label {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin: 10px 0 6px;
+}
+
+.tool-card-body .label:first-child {
+  margin-top: 10px;
 }
 
 .tool-icon {
@@ -447,6 +538,13 @@
   font-weight: 600;
   color: #a5b4fc;
   flex: 1;
+}
+
+.tool-toggle-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(148, 163, 184, 0.85);
 }
 
 .tool-status-pill {
@@ -466,6 +564,11 @@
 .tool-status-pill.completed {
   background: rgba(34, 197, 94, 0.2);
   color: #4ade80;
+}
+
+.tool-status-pill.failed {
+  background: rgba(248, 113, 113, 0.18);
+  color: #f87171;
 }
 
 .tool-args pre, .tool-result pre {

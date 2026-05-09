@@ -255,16 +255,21 @@ async def build_ollama_messages(session: ChatSession, template_id: str = None) -
     messages = []
     
     # ── Handle Template / System Prompt ──────────────────────────────────────
+    # Global prompt (charts, thinking tags, etc.) must always apply. Template base_prompt
+    # extends it — replacing the whole prompt would drop chart markdown rules and other core behavior.
     system_prompt = settings.SYSTEM_PROMPT
-    
+
     # Priority: template_id passed to build (from WS) > template_id stored in session
     effective_template_id = template_id or session.template_id
-    
+
     if effective_template_id:
         template = await template_controller.get_template(effective_template_id)
-        if template and template.get("base_prompt"):
-            system_prompt = template["base_prompt"]
-    
+        extra = (template or {}).get("base_prompt")
+        if extra and str(extra).strip():
+            system_prompt = (
+                f"{system_prompt}\n\n--- Workspace template instructions ---\n{extra.strip()}"
+            )
+
     messages.append({"role": "system", "content": system_prompt})
     
     # ── Append Session Messages (excluding existing system messages) ─────────
